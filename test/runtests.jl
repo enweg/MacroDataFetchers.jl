@@ -1,4 +1,5 @@
 using MacroDataFetchers
+using DataFrames
 using Dates
 using Test
 
@@ -429,5 +430,123 @@ end
                 @test calls[] == 1
             end
         end
+    end
+
+    @testset "FRED response parsing and schema" begin
+        fred = Fred(api_key="parse-key")
+
+        valid_body = """
+        {
+          "realtime_start": "2024-01-01",
+          "realtime_end": "2024-01-01",
+          "observation_start": "1776-07-04",
+          "observation_end": "9999-12-31",
+          "units": "lin",
+          "output_type": 1,
+          "file_type": "json",
+          "order_by": "observation_date",
+          "sort_order": "asc",
+          "count": 2,
+          "offset": 0,
+          "limit": 100000,
+          "observations": [
+            {
+              "realtime_start": "2024-01-01",
+              "realtime_end": "2024-01-01",
+              "date": "2024-01-01",
+              "value": "123.45"
+            },
+            {
+              "realtime_start": "2024-01-01",
+              "realtime_end": "2024-01-01",
+              "date": "2024-02-01",
+              "value": "."
+            }
+          ]
+        }
+        """
+
+        @test MacroDataFetchers._parse_value("123.45") == (123.45, false)
+        parsed_missing, was_missing = MacroDataFetchers._parse_value(".")
+        @test ismissing(parsed_missing)
+        @test was_missing === true
+
+        df = MacroDataFetchers._parse_response(valid_body, fred, "GDP")
+
+        @test df isa DataFrame
+        @test names(df) == [
+            "series_id",
+            "date",
+            "value",
+            "value_raw",
+            "value_was_missing_marker",
+            "realtime_start",
+            "realtime_end",
+        ]
+        @test eltype(df.series_id) == String
+        @test eltype(df.date) == Date
+        @test eltype(df.value) == Union{Missing,Float64}
+        @test eltype(df.value_raw) == String
+        @test eltype(df.value_was_missing_marker) == Bool
+        @test eltype(df.realtime_start) == Date
+        @test eltype(df.realtime_end) == Date
+        @test size(df) == (2, 7)
+        @test df.series_id == ["GDP", "GDP"]
+        @test df.date == [Date(2024, 1, 1), Date(2024, 2, 1)]
+        @test df.value[1] == 123.45
+        @test ismissing(df.value[2])
+        @test df.value_raw == ["123.45", "."]
+        @test df.value_was_missing_marker == [false, true]
+        @test df.realtime_start == [Date(2024, 1, 1), Date(2024, 1, 1)]
+        @test df.realtime_end == [Date(2024, 1, 1), Date(2024, 1, 1)]
+
+        malformed_json = "{not valid json"
+        err = try
+            MacroDataFetchers._parse_response(malformed_json, fred, "GDP")
+            nothing
+        catch caught
+            caught
+        end
+        @test err isa MacroDataFetchers.ResponseParseError
+        @test err.body == malformed_json
+
+        missing_observations_body = """{"realtime_start":"2024-01-01"}"""
+        err = try
+            MacroDataFetchers._parse_response(missing_observations_body, fred, "GDP")
+            nothing
+        catch caught
+            caught
+        end
+        @test err isa MacroDataFetchers.ResponseParseError
+
+        invalid_value_err = try
+            MacroDataFetchers._parse_value("not-a-number")
+            nothing
+        catch caught
+            caught
+        end
+        @test invalid_value_err isa MacroDataFetchers.ResponseParseError
+        @test invalid_value_err.body === nothing
+
+        invalid_observation_body = """
+        {
+          "observations": [
+            {
+              "realtime_start": "2024-01-01",
+              "realtime_end": "2024-01-01",
+              "date": "bad-date",
+              "value": "1.0"
+            }
+          ]
+        }
+        """
+        err = try
+            MacroDataFetchers._parse_response(invalid_observation_body, fred, "GDP")
+            nothing
+        catch caught
+            caught
+        end
+        @test err isa MacroDataFetchers.ResponseParseError
+        @test err.body == invalid_observation_body
     end
 end
