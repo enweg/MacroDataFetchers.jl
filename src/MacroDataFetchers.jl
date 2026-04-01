@@ -2,26 +2,13 @@ module MacroDataFetchers
 
 using Dates
 
-abstract type AbstractDataSource end
-abstract type AbstractDataStandardiser end
+include("sources/abstract_source.jl")
+include("core/types.jl")
+include("core/errors.jl")
+include("core/cache.jl")
+include("sources/fred/fred.jl")
+include("core/fetch.jl")
 
-struct Fred <: AbstractDataSource end
-
-function fetch_data(
-    series::Union{String,Vector{String}},
-    source::AbstractDataSource,
-    from::Date,
-    to::Date;
-    kwargs...,
-)
-    # build request
-    # call API
-    # parse response
-    # return output
-end
-
-function _build_request(::AbstractDataSource, args...; kwargs...) end
-
-function _parse_request(::AbstractDataSource, args...; kwargs...) end
+export AbstractDataSource, Fred, fetch_data, clear_cache!
 
 end
