@@ -6,6 +6,7 @@ include("sources/abstract_source.jl")
 include("core/types.jl")
 include("core/errors.jl")
 include("core/cache.jl")
+include("core/utils.jl")
 include("sources/fred/fred.jl")
 include("core/fetch.jl")
 
