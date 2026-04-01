@@ -1,4 +1,5 @@
 using MacroDataFetchers
+using Dates
 using Test
 
 function with_clean_fred_env(f::Function)
@@ -89,5 +90,43 @@ end
 
         @test result === nothing
         @test isempty(fred._cache.store)
+    end
+
+    @testset "generic option normalization" begin
+        @test MacroDataFetchers._parse_date(nothing) === nothing
+        @test MacroDataFetchers._parse_date(Date(2024, 1, 15)) == Date(2024, 1, 15)
+        @test MacroDataFetchers._parse_date("2024-01-15") == Date(2024, 1, 15)
+
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._parse_date(DateTime(2024, 1, 15))
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._parse_date("01/15/2024")
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._parse_date("2024-1-15")
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._parse_date(123)
+
+        @test MacroDataFetchers._validate_on_error(:raise) == :raise
+        @test MacroDataFetchers._validate_on_error(:skip) == :skip
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._validate_on_error(:warn)
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._validate_on_error("raise")
+
+        options = MacroDataFetchers._normalize_fetch_options(
+            start_date="2024-01-01",
+            end_date=Date(2024, 2, 1),
+            on_error=:skip,
+            observation_start="2020-01-01",
+            limit=1000,
+        )
+
+        @test options isa MacroDataFetchers.FetchOptions
+        @test options.start_date == Date(2024, 1, 1)
+        @test options.end_date == Date(2024, 2, 1)
+        @test options.on_error == :skip
+        @test options.provider_kwargs == (observation_start="2020-01-01", limit=1000)
+    end
+
+    @testset "fetch_data generic validation" begin
+        fred = Fred(api_key="fetch-key")
+
+        @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; on_error=:warn)
+        @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; start_date="01/01/2024")
+        @test_throws ErrorException fetch_data("GDP", fred; start_date="2024-01-01", on_error=:skip)
     end
 end
