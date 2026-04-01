@@ -224,4 +224,76 @@ end
             observation_start="2021-01-01",
         )
     end
+
+    @testset "FRED request building and cache keys" begin
+        fred = Fred(api_key="request-key")
+        options = MacroDataFetchers.FredObservationsOptions(
+            Date(2020, 1, 1),
+            Date(2020, 12, 31),
+            Date(2019, 1, 1),
+            Date(2019, 12, 31),
+            1000,
+            10,
+            :asc,
+            :lin,
+            :m,
+            :avg,
+            4,
+            [Date(2020, 3, 1), Date(2020, 4, 1)],
+        )
+
+        request = MacroDataFetchers._build_request("GDP", fred, options)
+
+        @test request.method == "GET"
+        @test request.base_url == MacroDataFetchers._FRED_BASE_URL
+        @test request.path == MacroDataFetchers._FRED_OBSERVATIONS_PATH
+        @test request.url == "https://api.stlouisfed.org/fred/series/observations"
+        @test request.query["api_key"] == "request-key"
+        @test request.query["file_type"] == "json"
+        @test request.query["series_id"] == "GDP"
+        @test request.query["observation_start"] == "2020-01-01"
+        @test request.query["observation_end"] == "2020-12-31"
+        @test request.query["realtime_start"] == "2019-01-01"
+        @test request.query["realtime_end"] == "2019-12-31"
+        @test request.query["limit"] == "1000"
+        @test request.query["offset"] == "10"
+        @test request.query["sort_order"] == "asc"
+        @test request.query["units"] == "lin"
+        @test request.query["frequency"] == "m"
+        @test request.query["aggregation_method"] == "avg"
+        @test request.query["output_type"] == "4"
+        @test request.query["vintage_dates"] == "2020-03-01,2020-04-01"
+
+        reordered_request = (
+            method="GET",
+            base_url=MacroDataFetchers._FRED_BASE_URL,
+            path=MacroDataFetchers._FRED_OBSERVATIONS_PATH,
+            query=Dict(
+                "series_id" => "GDP",
+                "file_type" => "json",
+                "api_key" => "different-key",
+                "limit" => "1000",
+                "observation_start" => "2020-01-01",
+            ),
+        )
+        reordered_request_same_semantics = (
+            method="GET",
+            base_url=MacroDataFetchers._FRED_BASE_URL,
+            path=MacroDataFetchers._FRED_OBSERVATIONS_PATH,
+            query=Dict(
+                "observation_start" => "2020-01-01",
+                "limit" => "1000",
+                "api_key" => "another-key",
+                "file_type" => "json",
+                "series_id" => "GDP",
+            ),
+        )
+
+        @test MacroDataFetchers._canonical_cache_key(reordered_request) ==
+              MacroDataFetchers._canonical_cache_key(reordered_request_same_semantics)
+        @test occursin("file_type=json", MacroDataFetchers._canonical_cache_key(request))
+        @test !occursin("request-key", MacroDataFetchers._canonical_cache_key(request))
+
+        @test_throws MacroDataFetchers.RequestBuildError MacroDataFetchers._build_request("   ", fred, options)
+    end
 end
