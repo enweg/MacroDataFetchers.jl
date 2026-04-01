@@ -1,7 +1,38 @@
 """
     fetch_data(series_id, source; start_date=nothing, end_date=nothing, on_error=:raise, kwargs...)
+    fetch_data(series_ids, source; start_date=nothing, end_date=nothing, on_error=:raise, kwargs...)
 
-Fetch macroeconomic data for one or more series from `source`.
+Fetch one or more macroeconomic series from `source` and return a long
+[`DataFrame`](https://dataframes.juliadata.org/stable/).
+
+`series_id` may be a single string or a vector of strings. Generic keywords are
+normalized before provider-specific options are applied.
+
+# Arguments
+- `start_date`: Optional observation start date as a `Date` or ISO
+  `"yyyy-mm-dd"` string.
+- `end_date`: Optional observation end date as a `Date` or ISO
+  `"yyyy-mm-dd"` string.
+- `on_error`: Multi-series error policy. Use `:raise` to stop on the first
+  failure or `:skip` to warn and continue.
+- `kwargs...`: Provider-specific options accepted by the concrete source.
+
+# Returns
+- A long `DataFrame` containing one row per provider observation.
+
+# Errors
+- `ValidationError` for invalid generic or provider-specific options.
+- Provider-specific request or parsing errors for request failures and malformed
+  responses.
+
+# Examples
+```julia
+julia> fred = Fred(api_key="your-fred-api-key");
+
+julia> df = fetch_data("GDP", fred; start_date="2020-01-01");
+
+julia> multi = fetch_data(["GDP", "CPIAUCSL"], fred; on_error=:skip);
+```
 """
 function fetch_data(
     series_id::AbstractString,

@@ -1,10 +1,29 @@
+const _FRED_API_KEY_ENV = "FRED_API_KEY"
+
 """
+    Fred
     Fred(; api_key=nothing, use_cache=true, timeout_seconds=30, max_retries=2)
 
 Data source for the Federal Reserve Economic Data (FRED) API.
-"""
-const _FRED_API_KEY_ENV = "FRED_API_KEY"
 
+# Arguments
+- `api_key`: Optional FRED API key. Resolution order is the explicit keyword,
+  `ENV["FRED_API_KEY"]`, and then a local `.env` file.
+- `use_cache`: When `true`, successful raw HTTP responses are cached in memory
+  on the `Fred` instance for the current Julia session.
+- `timeout_seconds`: Request timeout passed to the HTTP layer.
+- `max_retries`: Number of retry attempts for transient request failures.
+
+# Errors
+- `ConfigurationError` if no API key can be resolved.
+- `ValidationError` if `timeout_seconds <= 0` or `max_retries < 0`.
+
+# Examples
+```julia
+julia> fred = Fred(api_key="your-fred-api-key", use_cache=true)
+Fred(api_key=present, use_cache=true, timeout_seconds=30.0, max_retries=2, cache_entries=0)
+```
+"""
 struct Fred <: AbstractDataSource
     api_key::String
     use_cache::Bool
@@ -58,6 +77,12 @@ function _normalize_fred_api_key(api_key)::String
 
     return stripped
 end
+
+"""
+    clear_cache!(source::Fred) -> Nothing
+
+Remove all cached raw HTTP responses stored on `source`.
+"""
 function clear_cache!(source::Fred)::Nothing
     empty!(source._cache.store)
     return nothing
