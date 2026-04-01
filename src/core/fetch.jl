@@ -17,8 +17,8 @@ function fetch_data(
         on_error=on_error,
         kwargs...,
     )
-    _normalize_provider_options(source, options)
-    throw(ErrorException("`fetch_data` is not implemented for $(typeof(source)) yet."))
+    provider_options = _normalize_provider_options(source, options)
+    return _fetch_one_series(series_id, source, provider_options)
 end
 
 function fetch_data(
@@ -35,6 +35,65 @@ function fetch_data(
         on_error=on_error,
         kwargs...,
     )
-    _normalize_provider_options(source, options)
-    throw(ErrorException("`fetch_data` is not implemented for $(typeof(source)) yet."))
+    return _fetch_many_series(series_ids, source, options)
+end
+
+function _fetch_many_series(
+    series_ids::AbstractVector{<:AbstractString},
+    source::AbstractDataSource,
+    options::FetchOptions,
+)::DataFrame
+    unique_series_ids, duplicates = _deduplicate_series_ids(series_ids)
+    isempty(duplicates) || @warn "Dropped duplicate series IDs: $(join(duplicates, ", "))"
+
+    provider_options = _normalize_provider_options(source, options)
+    frames = DataFrame[]
+
+    for series_id in unique_series_ids
+        try
+            push!(frames, _fetch_one_series(series_id, source, provider_options))
+        catch err
+            if options.on_error == :skip
+                @warn "Skipping series `$(series_id)` after $(nameof(typeof(err))): $(sprint(showerror, err))"
+                continue
+            end
+            rethrow()
+        end
+    end
+
+    return isempty(frames) ? DataFrame(
+        series_id=String[],
+        date=Date[],
+        value=Union{Missing,Float64}[],
+        value_raw=String[],
+        value_was_missing_marker=Bool[],
+        realtime_start=Date[],
+        realtime_end=Date[],
+    ) : vcat(frames...)
+end
+
+function _fetch_one_series(
+    series_id::AbstractString,
+    source::AbstractDataSource,
+    provider_options,
+)::DataFrame
+    throw(MethodError(_fetch_one_series, (series_id, source, provider_options)))
+end
+
+function _deduplicate_series_ids(series_ids::AbstractVector{<:AbstractString})
+    seen = Set{String}()
+    unique_ids = String[]
+    duplicates = String[]
+
+    for series_id in series_ids
+        normalized = String(series_id)
+        if normalized in seen
+            push!(duplicates, normalized)
+        else
+            push!(seen, normalized)
+            push!(unique_ids, normalized)
+        end
+    end
+
+    return unique_ids, duplicates
 end

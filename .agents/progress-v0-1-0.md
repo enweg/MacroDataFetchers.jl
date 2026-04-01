@@ -8,12 +8,13 @@ Completed milestones:
 - Milestone 5 - Request building and cache keys
 - Milestone 6 - HTTP layer, retries, cache usage
 - Milestone 7 - Response parsing and DataFrame construction
+- Milestone 8 - Public fetch orchestration
 
 Current status:
-- Milestone 7 implemented and verified with offline tests.
+- Milestone 8 implemented and verified with offline tests.
 
 Next milestone to implement:
-- Milestone 8 - Public fetch orchestration
+- Milestone 9 - Documentation and contributor guide
 
 Implementation notes:
 - Set up the package source tree and main module wiring.
@@ -25,7 +26,8 @@ Implementation notes:
 - Added FRED request construction, internal endpoint constants, JSON request enforcement, and canonical cache-key generation in milestone 5.
 - Added the `HTTP.jl` dependency and implemented a mockable `_send_request` transport layer with timeout handling, exponential retry backoff, and in-memory cache read/write integration in milestone 6.
 - Added the `JSON3.jl` and `DataFrames.jl` dependencies plus strict FRED response parsing, missing-value handling, and exact long-schema `DataFrame` construction in milestone 7.
-- Kept public fetch orchestration and multi-series execution out of scope through milestone 7.
+- Added public `fetch_data` execution, FRED `_fetch_one_series`, multi-series orchestration, duplicate-series warnings, and `on_error = :raise` / `:skip` behavior in milestone 8.
+- Kept documentation, contributor guide, and live-test / CI work out of scope through milestone 8.
 
 Agent verification to rerun on later milestones:
 - `julia --project=. test/runtests.jl`

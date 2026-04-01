@@ -1,6 +1,7 @@
 using MacroDataFetchers
 using DataFrames
 using Dates
+using Logging
 using Test
 
 function with_clean_fred_env(f::Function)
@@ -30,6 +31,55 @@ function capture_request_error(f::Function)
     catch err
         err isa MacroDataFetchers.RequestError || rethrow()
         return err
+    end
+end
+
+function capture_warnings(f::Function)
+    io = IOBuffer()
+    logger = SimpleLogger(io, Logging.Warn)
+
+    with_logger(logger) do
+        f()
+    end
+
+    seekstart(io)
+    return String(take!(io))
+end
+
+function response_body_for(series_id, values)
+    observations_json = join([
+        """
+        {
+          "realtime_start": "2024-01-01",
+          "realtime_end": "2024-01-01",
+          "date": "$(date)",
+          "value": "$(value)"
+        }
+        """ for (date, value) in values
+    ], ",")
+
+    return """
+    {
+      "observations": [
+        $(observations_json)
+      ]
+    }
+    """
+end
+
+function with_fetch_mock(f::Function; use_cache=false)
+    fred = Fred(
+        api_key="mock-fetch-key",
+        use_cache=use_cache,
+        timeout_seconds=12,
+        max_retries=1,
+    )
+
+    with_mock_http((req, src) -> begin
+        series_id = req.query["series_id"]
+        return (status=200, body=response_body_for(series_id, [("2024-01-01", "1.0")]))
+    end) do
+        f(fred)
     end
 end
 
@@ -152,7 +202,11 @@ end
 
         @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; on_error=:warn)
         @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; start_date="01/01/2024")
-        @test_throws ErrorException fetch_data("GDP", fred; start_date="2024-01-01", on_error=:skip)
+
+        with_mock_http((req, src) -> (status=200, body=response_body_for("GDP", [("2024-01-01", "1.0")]))) do
+            df = fetch_data("GDP", fred; start_date="2024-01-01", on_error=:skip)
+            @test size(df) == (1, 7)
+        end
     end
 
     @testset "FRED provider option normalization" begin
@@ -548,5 +602,74 @@ end
         end
         @test err isa MacroDataFetchers.ResponseParseError
         @test err.body == invalid_observation_body
+    end
+
+    @testset "public fetch orchestration" begin
+        @testset "single-series fetch" begin
+            fred = Fred(api_key="single-fetch-key", use_cache=false)
+
+            with_mock_http((req, src) -> begin
+                @test req.query["series_id"] == "GDP"
+                return (status=200, body=response_body_for("GDP", [("2024-01-01", "10.0")]))
+            end) do
+                df = fetch_data("GDP", fred; start_date="2024-01-01")
+                @test size(df) == (1, 7)
+                @test df.series_id == ["GDP"]
+                @test df.value == [10.0]
+            end
+        end
+
+        @testset "multi-series dedup, order, and skip handling" begin
+            fred = Fred(api_key="multi-fetch-key", use_cache=false, max_retries=0)
+            calls = String[]
+
+            warnings = capture_warnings() do
+                with_mock_http((req, src) -> begin
+                    series_id = req.query["series_id"]
+                    push!(calls, series_id)
+
+                    if series_id == "BAD"
+                        return (status=503, body="temporary failure")
+                    elseif series_id == "GDP"
+                        return (status=200, body=response_body_for("GDP", [("2024-01-01", "1.0"), ("2024-02-01", "2.0")]))
+                    elseif series_id == "CPI"
+                        return (status=200, body=response_body_for("CPI", [("2024-01-01", "3.0")]))
+                    end
+
+                    error("unexpected series")
+                end) do
+                    df = fetch_data(["GDP", "BAD", "GDP", "CPI"], fred; on_error=:skip)
+                    @test calls == ["GDP", "BAD", "CPI"]
+                    @test df.series_id == ["GDP", "GDP", "CPI"]
+                    @test df.value == [1.0, 2.0, 3.0]
+                end
+            end
+
+            @test occursin("Dropped duplicate series IDs: GDP", warnings)
+            @test occursin("Skipping series `BAD` after RequestError", warnings)
+        end
+
+        @testset "multi-series raise behavior" begin
+            fred = Fred(api_key="raise-fetch-key", use_cache=false, max_retries=0)
+            calls = String[]
+
+            err = capture_request_error() do
+                with_mock_http((req, src) -> begin
+                    series_id = req.query["series_id"]
+                    push!(calls, series_id)
+
+                    if series_id == "BAD"
+                        return (status=503, body="temporary failure")
+                    end
+
+                    return (status=200, body=response_body_for(series_id, [("2024-01-01", "1.0")]))
+                end) do
+                    fetch_data(["GDP", "BAD", "CPI"], fred; on_error=:raise)
+                end
+            end
+
+            @test err.status == 503
+            @test calls == ["GDP", "BAD"]
+        end
     end
 end

@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "0122a37e062371addc0462aa7a769067f8f72393"
+project_hash = "1cc4d0df4c9c3d09537f339a93ed2ff1a090cbef"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -169,7 +169,7 @@ uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.2.0"
 
 [[deps.MacroDataFetchers]]
-deps = ["Dates", "HTTP"]
+deps = ["DataFrames", "Dates", "HTTP", "JSON3"]
 path = "."
 uuid = "fab5017f-b469-41f8-8728-3d672a68268f"
 version = "1.0.0-DEV"

@@ -24,22 +24,47 @@ using Test
     end
 
     @testset "public stubs" begin
-        fred = MacroDataFetchers.Fred(
-            api_key="smoke-key",
-            use_cache=false,
-            timeout_seconds=12,
-            max_retries=1,
+        original_requester = MacroDataFetchers._HTTP_REQUESTER[]
+        MacroDataFetchers._HTTP_REQUESTER[] = (request, source) -> (
+            status=200,
+            body="""
+            {
+              "observations": [
+                {
+                  "realtime_start": "2024-01-01",
+                  "realtime_end": "2024-01-01",
+                  "date": "2024-01-01",
+                  "value": "1.0"
+                }
+              ]
+            }
+            """,
         )
 
-        @test_throws ErrorException fetch_data("GDP", fred)
-        @test_throws ErrorException fetch_data(["GDP"], fred)
-        @test clear_cache!(fred) === nothing
+        try
+            fred = MacroDataFetchers.Fred(
+                api_key="smoke-key",
+                use_cache=false,
+                timeout_seconds=12,
+                max_retries=1,
+            )
 
-        display_text = sprint(show, fred)
-        @test occursin("Fred(", display_text)
-        @test occursin("api_key=present", display_text)
-        @test occursin("use_cache=false", display_text)
-        @test occursin("timeout_seconds=12.0", display_text)
-        @test !occursin("smoke-key", display_text)
+            single = fetch_data("GDP", fred)
+            multi = fetch_data(["GDP", "CPI"], fred; on_error=:skip)
+
+            @test size(single) == (1, 7)
+            @test single.series_id == ["GDP"]
+            @test multi.series_id == ["GDP", "CPI"]
+            @test clear_cache!(fred) === nothing
+
+            display_text = sprint(show, fred)
+            @test occursin("Fred(", display_text)
+            @test occursin("api_key=present", display_text)
+            @test occursin("use_cache=false", display_text)
+            @test occursin("timeout_seconds=12.0", display_text)
+            @test !occursin("smoke-key", display_text)
+        finally
+            MacroDataFetchers._HTTP_REQUESTER[] = original_requester
+        end
     end
 end

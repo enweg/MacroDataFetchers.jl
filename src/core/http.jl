@@ -60,7 +60,7 @@ function _default_http_request(request, source::Fred)
         request.method,
         request.url;
         query=request.query,
-        readtimeout=source.timeout_seconds,
+        readtimeout=ceil(Int, source.timeout_seconds),
         status_exception=false,
     )
 

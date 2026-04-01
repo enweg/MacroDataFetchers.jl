@@ -83,3 +83,13 @@ end
 function _serialize_request_value(value)::String
     return string(value)
 end
+
+function _fetch_one_series(
+    series_id::AbstractString,
+    source::Fred,
+    options::FredObservationsOptions,
+)::DataFrame
+    request = _build_request(series_id, source, options)
+    body = _send_request(request, source)
+    return _parse_response(body, source, series_id)
+end
