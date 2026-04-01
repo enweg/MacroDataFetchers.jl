@@ -8,6 +8,30 @@ function with_clean_fred_env(f::Function)
     end
 end
 
+function with_mock_http(f::Function, requester::Function; sleeper::Function=(seconds -> nothing))
+    original_requester = MacroDataFetchers._HTTP_REQUESTER[]
+    original_sleeper = MacroDataFetchers._RETRY_SLEEP[]
+    MacroDataFetchers._HTTP_REQUESTER[] = requester
+    MacroDataFetchers._RETRY_SLEEP[] = sleeper
+
+    try
+        f()
+    finally
+        MacroDataFetchers._HTTP_REQUESTER[] = original_requester
+        MacroDataFetchers._RETRY_SLEEP[] = original_sleeper
+    end
+end
+
+function capture_request_error(f::Function)
+    try
+        f()
+        error("expected RequestError")
+    catch err
+        err isa MacroDataFetchers.RequestError || rethrow()
+        return err
+    end
+end
+
 @testset "MacroDataFetchers.jl" begin
     @testset "dotenv parsing" begin
         mktempdir() do dir
@@ -295,5 +319,115 @@ end
         @test !occursin("request-key", MacroDataFetchers._canonical_cache_key(request))
 
         @test_throws MacroDataFetchers.RequestBuildError MacroDataFetchers._build_request("   ", fred, options)
+    end
+
+    @testset "FRED HTTP layer, retries, and cache" begin
+        options = MacroDataFetchers.FredObservationsOptions(
+            Date(2020, 1, 1),
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+        )
+
+        @testset "successful response is cached" begin
+            fred = Fred(api_key="cache-http-key", max_retries=2)
+            request = MacroDataFetchers._build_request("GDP", fred, options)
+            calls = Ref(0)
+
+            with_mock_http((req, src) -> begin
+                calls[] += 1
+                return (status=200, body="body-from-network")
+            end) do
+                body1 = MacroDataFetchers._send_request(request, fred)
+                body2 = MacroDataFetchers._send_request(request, fred)
+
+                @test body1 == "body-from-network"
+                @test body2 == "body-from-network"
+                @test calls[] == 1
+                @test length(fred._cache.store) == 1
+            end
+        end
+
+        @testset "cache disabled bypasses store" begin
+            fred = Fred(api_key="no-cache-key", use_cache=false, max_retries=1)
+            request = MacroDataFetchers._build_request("GDP", fred, options)
+            calls = Ref(0)
+
+            with_mock_http((req, src) -> begin
+                calls[] += 1
+                return (status=200, body="fresh-body")
+            end) do
+                @test MacroDataFetchers._send_request(request, fred) == "fresh-body"
+                @test MacroDataFetchers._send_request(request, fred) == "fresh-body"
+                @test calls[] == 2
+                @test isempty(fred._cache.store)
+            end
+        end
+
+        @testset "transient failure retries then succeeds" begin
+            fred = Fred(api_key="retry-key", max_retries=2)
+            request = MacroDataFetchers._build_request("GDP", fred, options)
+            calls = Ref(0)
+            sleep_calls = Float64[]
+
+            with_mock_http(
+                (req, src) -> begin
+                    calls[] += 1
+                    if calls[] < 3
+                        throw(ErrorException("temporary outage"))
+                    end
+                    return (status=200, body="recovered")
+                end,
+                sleeper=(seconds -> push!(sleep_calls, seconds)),
+            ) do
+                @test MacroDataFetchers._send_request(request, fred) == "recovered"
+                @test calls[] == 3
+                @test sleep_calls == [0.1, 0.2]
+            end
+        end
+
+        @testset "request errors surface and are not cached" begin
+            fred = Fred(api_key="error-key", max_retries=1)
+            request = MacroDataFetchers._build_request("GDP", fred, options)
+            calls = Ref(0)
+
+            with_mock_http((req, src) -> begin
+                calls[] += 1
+                return (status=503, body="service unavailable")
+            end) do
+                err = capture_request_error() do
+                    MacroDataFetchers._send_request(request, fred)
+                end
+                @test err.status == 503
+                @test err.body == "service unavailable"
+                @test calls[] == 2
+                @test isempty(fred._cache.store)
+            end
+        end
+
+        @testset "non-retryable request error stops immediately" begin
+            fred = Fred(api_key="client-error-key", max_retries=3)
+            request = MacroDataFetchers._build_request("GDP", fred, options)
+            calls = Ref(0)
+
+            with_mock_http((req, src) -> begin
+                calls[] += 1
+                return (status=404, body="not found")
+            end) do
+                err = capture_request_error() do
+                    MacroDataFetchers._send_request(request, fred)
+                end
+                @test err.status == 404
+                @test calls[] == 1
+            end
+        end
     end
 end
