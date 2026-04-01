@@ -13,6 +13,16 @@ function _normalize_fetch_options(; start_date=nothing, end_date=nothing, on_err
 end
 
 """
+    _normalize_provider_options(source::AbstractDataSource, options::FetchOptions)
+
+Provider-specific normalization hook. Sources can specialize this with more
+specific methods.
+"""
+function _normalize_provider_options(::AbstractDataSource, options::FetchOptions)
+    return options
+end
+
+"""
     _validate_on_error(on_error) -> Symbol
 
 Validate the generic `on_error` mode.

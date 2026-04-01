@@ -680,6 +680,11 @@ _fetch_many_series(
     source::AbstractDataSource,
     options::FetchOptions,
 )::DataFrame
+
+_normalize_provider_options(
+    source::AbstractDataSource,
+    options::FetchOptions,
+)
 ```
 
 ## 13.3 FRED-specific option normalization
@@ -967,6 +972,7 @@ Implement:
 - mapping `start_date -> observation_start`
 - mapping `end_date -> observation_end`
 - conflict detection
+- provider normalization via multiple dispatch, with a generic normalization hook for extensibility
 
 Acceptance criteria:
 

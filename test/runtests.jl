@@ -129,4 +129,99 @@ end
         @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; start_date="01/01/2024")
         @test_throws ErrorException fetch_data("GDP", fred; start_date="2024-01-01", on_error=:skip)
     end
+
+    @testset "FRED provider option normalization" begin
+        fred = Fred(api_key="options-key")
+
+        options = MacroDataFetchers._normalize_fetch_options(
+            start_date="2020-01-01",
+            end_date=Date(2020, 12, 31),
+            on_error=:raise,
+            realtime_start="2019-01-01",
+            realtime_end=Date(2019, 12, 31),
+            limit=1000,
+            offset=10,
+            sort_order="asc",
+            units=:lin,
+            frequency="m",
+            aggregation_method=:avg,
+            output_type=4,
+            vintage_dates=["2020-03-01", Date(2020, 4, 1)],
+        )
+
+        normalized = MacroDataFetchers._normalize_provider_options(fred, options)
+
+        @test normalized isa MacroDataFetchers.FredObservationsOptions
+        @test normalized.observation_start == Date(2020, 1, 1)
+        @test normalized.observation_end == Date(2020, 12, 31)
+        @test normalized.realtime_start == Date(2019, 1, 1)
+        @test normalized.realtime_end == Date(2019, 12, 31)
+        @test normalized.limit == 1000
+        @test normalized.offset == 10
+        @test normalized.sort_order == :asc
+        @test normalized.units == :lin
+        @test normalized.frequency == :m
+        @test normalized.aggregation_method == :avg
+        @test normalized.output_type == 4
+        @test normalized.vintage_dates == [Date(2020, 3, 1), Date(2020, 4, 1)]
+    end
+
+    @testset "FRED provider validation" begin
+        fred = Fred(api_key="validation-key")
+
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._validate_provider_kwargs(
+            fred,
+            (unknown_option=1,),
+        )
+
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._normalize_symbol_option(
+            "ASC",
+            (:asc, :desc),
+            :sort_order,
+        )
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._normalize_symbol_option(
+            1,
+            (:asc, :desc),
+            :sort_order,
+        )
+
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._resolve_date_conflicts(
+            Date(2020, 1, 1),
+            nothing,
+            Date(2021, 1, 1),
+            nothing,
+        )
+
+        same_dates = MacroDataFetchers._resolve_date_conflicts(
+            Date(2020, 1, 1),
+            Date(2020, 12, 31),
+            Date(2020, 1, 1),
+            Date(2020, 12, 31),
+        )
+        @test same_dates == (Date(2020, 1, 1), Date(2020, 12, 31))
+
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._normalize_provider_options(
+            fred,
+            MacroDataFetchers._normalize_fetch_options(unknown_option=1),
+        )
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._normalize_provider_options(
+            fred,
+            MacroDataFetchers._normalize_fetch_options(sort_order="ASC"),
+        )
+        @test_throws MacroDataFetchers.ValidationError MacroDataFetchers._normalize_provider_options(
+            fred,
+            MacroDataFetchers._normalize_fetch_options(
+                start_date="2020-01-01",
+                observation_start="2021-01-01",
+            ),
+        )
+
+        @test_throws MacroDataFetchers.ValidationError fetch_data("GDP", fred; sort_order="ASC")
+        @test_throws MacroDataFetchers.ValidationError fetch_data(
+            "GDP",
+            fred;
+            start_date="2020-01-01",
+            observation_start="2021-01-01",
+        )
+    end
 end

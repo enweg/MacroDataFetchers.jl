@@ -11,12 +11,13 @@ function fetch_data(
     on_error::Symbol=:raise,
     kwargs...,
 )
-    _ = _normalize_fetch_options(;
+    options = _normalize_fetch_options(;
         start_date=start_date,
         end_date=end_date,
         on_error=on_error,
         kwargs...,
     )
+    _normalize_provider_options(source, options)
     throw(ErrorException("`fetch_data` is not implemented for $(typeof(source)) yet."))
 end
 
@@ -28,11 +29,12 @@ function fetch_data(
     on_error::Symbol=:raise,
     kwargs...,
 )
-    _ = _normalize_fetch_options(;
+    options = _normalize_fetch_options(;
         start_date=start_date,
         end_date=end_date,
         on_error=on_error,
         kwargs...,
     )
+    _normalize_provider_options(source, options)
     throw(ErrorException("`fetch_data` is not implemented for $(typeof(source)) yet."))
 end
