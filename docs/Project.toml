@@ -1,3 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 MacroDataFetchers = "fab5017f-b469-41f8-8728-3d672a68268f"
+
+[compat]
+Documenter = "1.17.0"
