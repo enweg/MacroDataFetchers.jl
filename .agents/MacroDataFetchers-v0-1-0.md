@@ -584,50 +584,60 @@ src/
 ## 12.1 File responsibilities
 
 ### `src/MacroDataFetchers.jl`
+
 - main module
 - includes files
 - exports public API
 
 ### `src/sources/abstract_source.jl`
+
 - `AbstractDataSource`
 
 ### `src/core/types.jl`
+
 - `MemoryCache`
 - `FetchOptions`
 
 ### `src/core/errors.jl`
+
 - custom exception types
 - optional `showerror` methods
 
 ### `src/core/options.jl`
+
 - `_normalize_fetch_options`
 - `_parse_date`
 - generic option validation helpers
 
 ### `src/core/cache.jl`
+
 - `clear_cache!`
 - cache read/write helpers
 - canonical key helpers if not provider-specific
 
 ### `src/core/http.jl`
+
 - `_send_request`
 - retry logic
 - timeout handling
 - request error handling
 
 ### `src/core/fetch.jl`
+
 - public `fetch_data`
 - single-series and multi-series orchestration
 - deduplication logic
 - `on_error` handling
 
 ### `src/sources/fred/fred.jl`
+
 - `Fred`
 - constructor
 - `show` method
 - provider dispatch hooks
 
 ### `src/sources/fred/options.jl`
+
 - `FredObservationsOptions`
 - provider kwarg validation
 - enum normalization
@@ -635,14 +645,17 @@ src/
 - conflict detection
 
 ### `src/sources/fred/request.jl`
+
 - `_build_request`
 - `_canonical_cache_key`
 
 ### `src/sources/fred/parse.jl`
+
 - `_parse_response`
 - `_parse_value`
 
 ### `src/sources/fred/schema.jl`
+
 - helper for constructing the typed `DataFrame`
 
 ---
