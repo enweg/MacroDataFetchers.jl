@@ -2,9 +2,23 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "d181a4aa61092ce957c195329e6d663ae1a58347"
+project_hash = "a669768870dc9371520bb9ef1e660174638645e9"
+
+[[deps.Dates]]
+deps = ["Printf"]
+uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+version = "1.11.0"
 
 [[deps.MacroDataFetchers]]
 path = "."
 uuid = "fab5017f-b469-41f8-8728-3d672a68268f"
 version = "1.0.0-DEV"
+
+[[deps.Printf]]
+deps = ["Unicode"]
+uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+version = "1.11.0"
+
+[[deps.Unicode]]
+uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+version = "1.11.0"
