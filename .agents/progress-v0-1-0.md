@@ -10,12 +10,13 @@ Completed milestones:
 - Milestone 7 - Response parsing and DataFrame construction
 - Milestone 8 - Public fetch orchestration
 - Milestone 9 - Documentation and contributor guide
+- Milestone 10 - Live integration tests and CI gating
 
 Current status:
-- Milestone 9 implemented and verified with offline tests.
+- Milestone 10 implemented and verified with offline and live tests.
 
 Next milestone to implement:
-- Milestone 10 - Live integration tests and CI gating
+- None. v0.1.0 milestones are complete.
 
 Implementation notes:
 - Set up the package source tree and main module wiring.
@@ -29,7 +30,8 @@ Implementation notes:
 - Added the `JSON3.jl` and `DataFrames.jl` dependencies plus strict FRED response parsing, missing-value handling, and exact long-schema `DataFrame` construction in milestone 7.
 - Added public `fetch_data` execution, FRED `_fetch_one_series`, multi-series orchestration, duplicate-series warnings, and `on_error = :raise` / `:skip` behavior in milestone 8.
 - Added fuller public API docstrings, Documenter pages for getting started / FRED usage / API reference, and a top-level `contributors.md` guide in milestone 9.
-- Kept live-test and CI gating work out of scope through milestone 9.
+- Added a gated `_should_run_live_tests()` test helper, a small real-network FRED integration test, and an opt-in manual GitHub Actions live-test job in milestone 10.
+- Live tests require both `ENV["FRED_API_KEY"]` and `ENV["RUN_LIVE_TESTS"] == "true"`; `.env` alone does not enable the live test gate.
 
 Agent verification to rerun on later milestones:
 - `julia --project=. test/runtests.jl`

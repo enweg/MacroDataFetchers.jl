@@ -57,6 +57,9 @@ src/
 - The `.agents/internal-smoke.jl` checks are for coding agents and other
   automated development workflows to validate package wiring and keep internal
   expectations aligned while working through milestones.
+- Live integration tests are also defined in `test/runtests.jl`, but they are
+  gated by `_should_run_live_tests()` and stay inactive unless explicitly
+  enabled.
 
 Run the standard verification commands with:
 
@@ -64,6 +67,16 @@ Run the standard verification commands with:
 julia --project=. test/runtests.jl
 julia --project=. .agents/internal-smoke.jl
 ```
+
+To opt into live integration tests locally:
+
+```bash
+FRED_API_KEY=your-fred-api-key RUN_LIVE_TESTS=true julia --project=. test/runtests.jl
+```
+
+The live-test gate checks `ENV["FRED_API_KEY"]` and `ENV["RUN_LIVE_TESTS"]`
+directly. A local `.env` file is supported by `Fred(...)`, but `.env` alone
+does not enable the live test set.
 
 ## Local FRED API Key Setup
 
@@ -88,8 +101,9 @@ The internal parser ignores blank lines and lines beginning with `#`.
 To enable live tests in GitHub Actions:
 
 1. add `FRED_API_KEY` as a repository or organization secret
-2. expose that secret to the CI job environment
-3. set `RUN_LIVE_TESTS=true` for the job or step that should run live tests
+2. trigger the `CI` workflow manually with the `run_live_tests` input enabled
+3. let the dedicated live-test job expose `FRED_API_KEY` and
+   `RUN_LIVE_TESTS=true` to the Julia test process
 
 Keep live tests separated from the default offline suite so normal CI remains
 stable when secrets are unavailable.
