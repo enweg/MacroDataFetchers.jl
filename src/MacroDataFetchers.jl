@@ -1,27 +1,24 @@
 module MacroDataFetchers
 
 using Dates
+using DataFrames
+using HTTP
+using JSON3
 
-abstract type AbstractDataSource end
-abstract type AbstractDataStandardiser end
+include("sources/abstract_source.jl")
+include("core/types.jl")
+include("core/errors.jl")
+include("core/cache.jl")
+include("core/utils.jl")
+include("core/options.jl")
+include("sources/fred/fred.jl")
+include("sources/fred/options.jl")
+include("sources/fred/request.jl")
+include("sources/fred/schema.jl")
+include("sources/fred/parse.jl")
+include("core/http.jl")
+include("core/fetch.jl")
 
-struct Fred <: AbstractDataSource end
-
-function fetch_data(
-    series::Union{String,Vector{String}},
-    source::AbstractDataSource,
-    from::Date,
-    to::Date;
-    kwargs...,
-)
-    # build request
-    # call API
-    # parse response
-    # return output
-end
-
-function _build_request(::AbstractDataSource, args...; kwargs...) end
-
-function _parse_request(::AbstractDataSource, args...; kwargs...) end
+export AbstractDataSource, Fred, fetch_data, clear_cache!
 
 end

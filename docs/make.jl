@@ -1,3 +1,7 @@
+using Pkg
+
+Pkg.develop(PackageSpec(path=joinpath(@__DIR__, "..")))
+
 using MacroDataFetchers
 using Documenter
 
@@ -5,6 +9,7 @@ DocMeta.setdocmeta!(MacroDataFetchers, :DocTestSetup, :(using MacroDataFetchers)
 
 makedocs(;
     modules=[MacroDataFetchers],
+    checkdocs=:exports,
     authors="Enrico Wegner",
     sitename="MacroDataFetchers.jl",
     format=Documenter.HTML(;
@@ -14,6 +19,9 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Getting Started" => "getting-started.md",
+        "FRED Usage" => "fred.md",
+        "API Reference" => "api.md",
     ],
 )
 

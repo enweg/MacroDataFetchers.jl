@@ -1,3 +1,5 @@
 /docs/Manifest*.toml
 /docs/build/
 **/.DS_Store
+.agents/.conform*
+.env
